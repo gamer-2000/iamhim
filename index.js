@@ -1,22 +1,19 @@
 const mineflayer = require('mineflayer');
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const http = require('http');
 
-// 1. RENDER HEALTH CHECK SERVER
+// 1. RENDER HEALTH CHECK
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('IamHim is active and running.\n');
+    res.end('IamHim is active\n');
 });
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-    console.log(`Health check server listening on port ${PORT}`);
-});
+server.listen(process.env.PORT || 8080);
 
 // 2. BOT CONFIGURATION
 const botArgs = {
     host: 'blackout.mcsh.io',
-    username: 'IamHim',
-    version: '1.20.1' 
+    username: 'IamHim', // This sets the bot's name
+    version: '1.20.1'
 };
 
 let bot;
@@ -25,29 +22,42 @@ let sessionTimeout;
 function createBot() {
     bot = mineflayer.createBot(botArgs);
 
+    // Load pathfinder for human movement
+    bot.loadPlugin(pathfinder);
+
     bot.on('spawn', () => {
-        console.log('Bot spawned: IamHim is online.');
+        console.log(`[${bot.username}] spawned!`);
         
-        // --- ANTI-BOT MOVEMENT ---
-        const moveInterval = setInterval(() => {
+        const mcData = require('minecraft-data')(bot.version);
+        const defaultMove = new Movements(bot, mcData);
+
+        // HUMAN MOVEMENT LOGIC
+        const roamInterval = setInterval(() => {
             if (!bot.entity) return;
-            const actions = ['forward', 'back', 'left', 'right', 'jump'];
-            const randomAction = actions[Math.floor(Math.random() * actions.length)];
-            bot.setControlState(randomAction, true);
-            setTimeout(() => bot.setControlState(randomAction, false), 800);
-        }, 25000);
 
-        // --- SESSION TIMER (1 Hour Online -> 5 Mins Offline) ---
-        // Clear any existing timer to prevent duplicates
+            // Randomly decide to walk to a nearby location (within 5-10 blocks)
+            const x = (Math.random() - 0.5) * 15;
+            const z = (Math.random() - 0.5) * 15;
+            const goal = new goals.GoalNear(bot.entity.position.x + x, bot.entity.position.y, bot.entity.position.z + z, 1);
+            
+            bot.pathfinder.setMovements(defaultMove);
+            bot.pathfinder.setGoal(goal);
+
+            // Occasionally look around randomly
+            bot.look(Math.random() * Math.PI * 2, (Math.random() - 0.5) * Math.PI);
+            
+        }, 45000); // Walk to a new spot every 45 seconds
+
+        // SESSION TIMER (1 Hour Online -> 5 Mins Offline)
         if (sessionTimeout) clearTimeout(sessionTimeout);
-
         sessionTimeout = setTimeout(() => {
-            console.log('1 hour reached. Leaving for 5 minutes to simulate a break...');
-            clearInterval(moveInterval); // Stop movement logic
-            bot.quit(); // Disconnect from server
-        }, 3600000); // 1 hour in milliseconds
+            console.log('Taking a 5-minute break...');
+            clearInterval(roamInterval);
+            bot.quit();
+        }, 3600000); 
     });
 
+    // AUTH LOGIC
     bot.on('message', (jsonMsg) => {
         const message = jsonMsg.toString();
         if (message.includes('/register')) {
@@ -61,18 +71,13 @@ function createBot() {
 
     bot.on('end', (reason) => {
         if (reason === 'quit') {
-            // This was our planned 5-minute break
-            console.log('Waiting 5 minutes before rejoining...');
-            setTimeout(createBot, 300000); // 5 minutes in milliseconds
+            setTimeout(createBot, 300000); // Wait 5 mins
         } else {
-            // This was an accidental disconnect or kick
-            console.log('Unexpected disconnect. Reconnecting in 10 seconds...');
-            setTimeout(createBot, 10000);
+            setTimeout(createBot, 10000); // Reconnect fast if kicked
         }
     });
 
-    bot.on('error', (err) => console.log('Connection Error:', err));
+    bot.on('error', (err) => console.log('Error:', err));
 }
 
-// Start the first session
 createBot();
