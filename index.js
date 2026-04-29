@@ -12,7 +12,7 @@ server.listen(process.env.PORT || 8080);
 // 2. BOT CONFIGURATION
 const botArgs = {
     host: 'blackout.mcsh.io',
-    username: 'IamHim', // This sets the bot's name
+    username: 'IamHi', // This sets the bot's name
     version: '1.20.1'
 };
 
