@@ -5,9 +5,11 @@
   "dependencies": {
     "mineflayer": "^4.20.0",
     "mineflayer-pathfinder": "^2.4.4",
+    "mineflayer-collectblock": "^1.7.0",
+    "mineflayer-tool": "^1.2.0",
     "minecraft-data": "^3.57.0"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node --max-old-space-size=450 index.js"
   }
 }
